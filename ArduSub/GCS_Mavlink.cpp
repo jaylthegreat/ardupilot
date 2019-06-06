@@ -136,6 +136,7 @@ NOINLINE void Sub::send_extended_status1(mavlink_channel_t chan)
 
     switch (control_mode) {
     case ALT_HOLD:
+    case TERR_FOLLOW:
     case AUTO:
     case GUIDED:
     case CIRCLE:

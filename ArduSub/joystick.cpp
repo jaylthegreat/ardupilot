@@ -58,6 +58,10 @@ void Sub::transform_manual_control_to_rc_override(int16_t x, int16_t y, int16_t 
     int16_t rpyCenter = 1500;
     int16_t throttleBase = 1500-500*throttleScale;
 
+    static bool should_notify_throttle_neutral = true;
+    
+
+
     bool shift = false;
 
     // Neutralize camera tilt and pan speed setpoint
@@ -93,6 +97,15 @@ void Sub::transform_manual_control_to_rc_override(int16_t x, int16_t y, int16_t 
 
     channels[0] = constrain_int16(pitchTrim + rpyCenter,1100,1900); // pitch
     channels[1] = constrain_int16(rollTrim  + rpyCenter,1100,1900); // roll
+
+
+    if (should_notify_throttle_neutral && z == 500) {
+        gcs_send_text(MAV_SEVERITY_INFO, "#n");
+        should_notify_throttle_neutral = false;
+    } else if (!should_notify_throttle_neutral && z != 500) {
+        gcs_send_text(MAV_SEVERITY_INFO, "#l");
+        should_notify_throttle_neutral = true;
+    }
 
     channels[2] = constrain_int16((z+zTrim)*throttleScale+throttleBase,1100,1900); // throttle
     channels[3] = constrain_int16(r*rpyScale+rpyCenter,1100,1900);                 // yaw
@@ -164,6 +177,10 @@ void Sub::handle_jsbutton_press(uint8_t button, bool shift, bool held)
     case JSButton::button_function_t::k_mode_poshold:
         set_mode(POSHOLD, MODE_REASON_TX_COMMAND);
         break;
+    case JSButton::button_function_t::k_mode_terr_follow:
+        set_mode(TERR_FOLLOW, MODE_REASON_TX_COMMAND);
+        break;
+
 
     case JSButton::button_function_t::k_mount_center:
         camera_mount.set_angle_targets(0, 0, 0);
@@ -541,27 +558,69 @@ void Sub::handle_jsbutton_press(uint8_t button, bool shift, bool held)
 
     case JSButton::button_function_t::k_roll_pitch_toggle:
         if (!held) {
+            gcs_send_text_fmt(MAV_SEVERITY_INFO, 
+             "#roll pitch mode %s", roll_pitch_flag ? "off" : "on");
             roll_pitch_flag = !roll_pitch_flag;
         }
         break;
 
     case JSButton::button_function_t::k_custom_1:
         // Not implemented
+        /*
+        if (!held) {
+            gcs_send_text_fmt(MAV_SEVERITY_INFO, "curr_alt = %.3f rngfnd_target_alt = %.3f",
+                inertial_nav.get_altitude(), target_rangefinder_alt);
+            gcs_send_text_fmt(MAV_SEVERITY_INFO, "current_baro_alt = %.5f alt_diff = %f",
+                barometer.get_altitude(), 
+                barometer.get_altitude_difference(barometer.get_ground_pressure(), barometer.get_pressure())
+                );
+        }
+        */
         break;
     case JSButton::button_function_t::k_custom_2:
+        if (!held) {
+            if (desired_distance_from_floor < 500) {
+                desired_distance_from_floor += 10;
+            }
+            gcs_send_text_fmt(MAV_SEVERITY_INFO, "desired_distance_from_bottom = %d cm",
+                desired_distance_from_floor);            
+        }
         // Not implemented
         break;
     case JSButton::button_function_t::k_custom_3:
+        if (!held) {
+            if (desired_distance_from_floor > 100) {
+                desired_distance_from_floor -= 10;
+            }
+            gcs_send_text_fmt(MAV_SEVERITY_INFO, "desired_distance_from_bottom = %d cm",
+                desired_distance_from_floor);
+        }
         // Not implemented
         break;
-    case JSButton::button_function_t::k_custom_4:
-        // Not implemented
+    case JSButton::button_function_t::k_custom_4:   // switch to terrain Follow mode
+        set_mode(TERR_FOLLOW, MODE_REASON_TX_COMMAND);
         break;
     case JSButton::button_function_t::k_custom_5:
-        // Not implemented
+    /*
+        if (!held) {
+            float amt = shift ? .5 : .2;
+            terrain.artificial_terrain_offset += amt;
+            gcs_send_text_fmt(MAV_SEVERITY_INFO, "terrain offset = %f",
+                terrain.artificial_terrain_offset);
+            // Not implemented
+        }
+        */
         break;
     case JSButton::button_function_t::k_custom_6:
         // Not implemented
+        /*
+        if (!held) {
+            float amt = shift ? .5 : .2;
+            terrain.artificial_terrain_offset -= amt;
+            gcs_send_text_fmt(MAV_SEVERITY_INFO, "terrain offset = %f",
+                terrain.artificial_terrain_offset);
+        }
+        */
         break;
     }
 }

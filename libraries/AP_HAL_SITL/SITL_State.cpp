@@ -476,6 +476,8 @@ void SITL_State::init(int argc, char * const argv[])
 void SITL_State::set_height_agl(void)
 {
     static float home_alt = -1;
+    //static int counter = 0;
+    //counter++;
 
     if (home_alt == -1 && _sitl->state.altitude > 0) {
         // remember home altitude as first non-zero altitude
@@ -493,6 +495,14 @@ void SITL_State::set_height_agl(void)
         location.lng = _sitl->state.longitude*1.0e7;
 
         if (_terrain->height_amsl(location, terrain_height_amsl, false)) {
+            /*
+            if (counter >= 1000) {
+                printf("height_agl = %.3f terrain_height = %.3f \n",
+                    _sitl->height_agl, terrain_height_amsl);
+
+                counter = 0;
+            }
+            */
             _sitl->height_agl = _sitl->state.altitude - terrain_height_amsl;
             return;
         }

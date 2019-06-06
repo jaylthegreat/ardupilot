@@ -2,6 +2,11 @@
 
 void Sub::init_barometer(bool save)
 {
+    if (CONFIG_HAL_BOARD == HAL_BOARD_SITL) {//////////////////////////////////////
+        //cheatingly set barometer to water type so we can use for depth
+        barometer.set_type(0, barometer.BARO_TYPE_WATER);
+    ///////////////////////////////////////////////////////////////////////////////
+    }
     gcs_send_text(MAV_SEVERITY_INFO, "Calibrating barometer");
     barometer.calibrate(save);
     gcs_send_text(MAV_SEVERITY_INFO, "Barometer calibration complete");

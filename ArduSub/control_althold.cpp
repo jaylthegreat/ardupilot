@@ -33,6 +33,7 @@ bool Sub::althold_init()
 void Sub::althold_run()
 {
     uint32_t tnow = AP_HAL::millis();
+    static uint32_t prevMessageTime = 0;
 
     // initialize vertical speeds and acceleration
     pos_control.set_speed_z(-g.pilot_velocity_z_max, g.pilot_velocity_z_max);
@@ -96,6 +97,20 @@ void Sub::althold_run()
             pos_control.set_alt_target(inertial_nav.get_altitude() + 10.0f); // set target to 10 cm above bottom
         } else if (rangefinder_alt_ok()) {
             // if rangefinder is ok, use surface tracking
+
+            if (AP_HAL::millis() - prevMessageTime >= 2000) {
+                gcs_send_text_fmt(MAV_SEVERITY_INFO, "curr_alt = %.4f rngfnd_target_alt = %.4f",
+                    inertial_nav.get_altitude(), target_rangefinder_alt);
+                    
+                //gcs_send_text_fmt(MAV_SEVERITY_INFO, "current_baro_alt = %.3f",
+                //    barometer.get_altitude());
+                prevMessageTime = tnow;
+            }
+
+            
+            //pos_control.set_alt_target(-500);
+            //target_rangefinder_alt = 100;
+            
             float target_climb_rate = get_surface_tracking_climb_rate(0, pos_control.get_alt_target(), G_Dt);
             pos_control.set_alt_target_from_climb_rate_ff(target_climb_rate, G_Dt, false);
         }

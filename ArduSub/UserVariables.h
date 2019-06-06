@@ -4,14 +4,10 @@
 // variables
 #ifdef USERHOOK_VARIABLES
 
-#if WII_CAMERA == 1
-WiiCamera           ircam;
-int                 WiiRange=0;
-int                 WiiRotation=0;
-int                 WiiDisplacementX=0;
-int                 WiiDisplacementY=0;
-#endif  // WII_CAMERA
-
+    // whether to use depth hold or altitude hold
+    bool alt_hold_mode = true;
+    // how far to stay off the ground in out terrain follow mode
+    int desired_distance_from_floor = 100;
 #endif  // USERHOOK_VARIABLES
 
 

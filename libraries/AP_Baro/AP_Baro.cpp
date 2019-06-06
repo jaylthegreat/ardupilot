@@ -534,9 +534,16 @@ void AP_Baro::update(void)
             if (sensors[i].type == BARO_TYPE_AIR) {
                 altitude = get_altitude_difference(sensors[i].ground_pressure, sensors[i].pressure);
             } else if (sensors[i].type == BARO_TYPE_WATER) {
-                //101325Pa is sea level air pressure, 9800 Pascal/ m depth in water.
-                //No temperature or depth compensation for density of water.
-                altitude = (sensors[i].ground_pressure - sensors[i].pressure) / 9800.0f / _specific_gravity;
+//////////////////////////////
+                if (CONFIG_HAL_BOARD == HAL_BOARD_SITL) {//////////////////////////////////////
+                    //dirty fix to make the depth update properly in qgc
+                    altitude = get_altitude_difference(sensors[i].ground_pressure, sensors[i].pressure);
+                }
+                else {
+                    //101325Pa is sea level air pressure, 9800 Pascal/ m depth in water.
+                    //No temperature or depth compensation for density of water.
+                    altitude = (sensors[i].ground_pressure - sensors[i].pressure) / 9800.0f / _specific_gravity;
+                }
             }
             // sanity check altitude
             sensors[i].alt_ok = !(isnan(altitude) || isinf(altitude));
