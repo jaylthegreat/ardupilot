@@ -581,7 +581,7 @@ void Sub::handle_jsbutton_press(uint8_t button, bool shift, bool held)
             gcs_send_text_fmt(MAV_SEVERITY_INFO, "current_baro_alt = %.5f alt_diff = %f",
                 barometer.get_altitude(), 
                 barometer.get_altitude_difference(barometer.get_ground_pressure(), barometer.get_pressure())
-                );
+            );
             //gcs_send_text_fmt(MAV_SEVERITY_INFO, "up_speed = %.5f ",
             //    inertial_nav.get_velocity_z() / 100
             //    );    
