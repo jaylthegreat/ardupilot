@@ -85,8 +85,6 @@ public:
         TerrainStatusOK        = 2  // terrain data available
     };
 
-    float artificial_terrain_offset = 0;
-
     static const struct AP_Param::GroupInfo var_info[];
     
     // update terrain state. Should be called at 1Hz or more

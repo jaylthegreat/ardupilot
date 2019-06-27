@@ -137,19 +137,9 @@ float Sub::get_surface_tracking_climb_rate_terrfollow(int16_t target_rate, float
     float dt, uint16_t rngfnd_alt)
 {
 #if RANGEFINDER_ENABLED == ENABLED
-    //static uint32_t last_call_ms = 0;
     float distance_error;
     float velocity_correction;
     float current_alt = inertial_nav.get_altitude();
-
-    //uint32_t now = millis();
-
-    // reset target altitude if this controller has just been engaged
-    //if (now - last_call_ms > RANGEFINDER_TIMEOUT_MS) {
-        // since we start with a set distance comment this out.
-        //target_rangefinder_alt = rangefinder_state.alt_cm + current_alt_target - current_alt;
-    //}
-    //last_call_ms = now;
 
     // adjust rangefinder target alt if motors have not hit their limits
     if ((target_rate<0 && !motors.limit.throttle_lower) || (target_rate>0 && !motors.limit.throttle_upper)) {

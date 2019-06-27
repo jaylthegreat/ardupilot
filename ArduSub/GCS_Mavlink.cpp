@@ -451,7 +451,6 @@ bool NOINLINE Sub::send_info(mavlink_channel_t chan)
             chan,
             AP_HAL::millis(),
             "RngTarget",
-            //pos_control.get_alt_target()); //show distance from surface
             target_rangefinder_alt);    //show distance from bottom
 
     CHECK_PAYLOAD_SIZE2(NAMED_VALUE_FLOAT);

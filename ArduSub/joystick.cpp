@@ -58,7 +58,7 @@ void Sub::transform_manual_control_to_rc_override(int16_t x, int16_t y, int16_t 
     int16_t rpyCenter = 1500;
     int16_t throttleBase = 1500-500*throttleScale;
 
-    //static bool should_notify_throttle_neutral = true;
+    static bool should_notify_throttle_neutral = true;
     
 
 
@@ -98,15 +98,13 @@ void Sub::transform_manual_control_to_rc_override(int16_t x, int16_t y, int16_t 
     channels[0] = constrain_int16(pitchTrim + rpyCenter,1100,1900); // pitch
     channels[1] = constrain_int16(rollTrim  + rpyCenter,1100,1900); // roll
 
-/*
     if (should_notify_throttle_neutral && z == 500) {
         gcs_send_text(MAV_SEVERITY_INFO, "#n");
         should_notify_throttle_neutral = false;
     } else if (!should_notify_throttle_neutral && z != 500) {
-        gcs_send_text(MAV_SEVERITY_INFO, "#l");
         should_notify_throttle_neutral = true;
     }
-*/
+
 
     channels[2] = constrain_int16((z+zTrim)*throttleScale+throttleBase,1100,1900); // throttle
     channels[3] = constrain_int16(r*rpyScale+rpyCenter,1100,1900);                 // yaw
@@ -574,7 +572,6 @@ void Sub::handle_jsbutton_press(uint8_t button, bool shift, bool held)
 
     case JSButton::button_function_t::k_custom_1:
         // Not implemented
-        
         if (!held) {
             gcs_send_text_fmt(MAV_SEVERITY_INFO, "curr_alt = %.3f rngfnd_target_alt = %.3f",
                 inertial_nav.get_altitude(), target_rangefinder_alt);
@@ -582,9 +579,6 @@ void Sub::handle_jsbutton_press(uint8_t button, bool shift, bool held)
                 barometer.get_altitude(), 
                 barometer.get_altitude_difference(barometer.get_ground_pressure(), barometer.get_pressure())
             );
-            //gcs_send_text_fmt(MAV_SEVERITY_INFO, "up_speed = %.5f ",
-            //    inertial_nav.get_velocity_z() / 100
-            //    );    
         }
         
         break;
@@ -614,26 +608,10 @@ void Sub::handle_jsbutton_press(uint8_t button, bool shift, bool held)
         // Not implemented
         break;
     case JSButton::button_function_t::k_custom_5:
-
-        if (!held) {
-            float amt = shift ? .5 : .05;
-            terrain.artificial_terrain_offset += amt;
-            gcs_send_text_fmt(MAV_SEVERITY_INFO, "terrain offset = %f",
-                terrain.artificial_terrain_offset);
-            // Not implemented
-        }
-        
+        // Not implemented
         break;
     case JSButton::button_function_t::k_custom_6:
         // Not implemented
-        
-        if (!held) {
-            float amt = shift ? .5 : .05;
-            terrain.artificial_terrain_offset -= amt;
-            gcs_send_text_fmt(MAV_SEVERITY_INFO, "terrain offset = %f",
-                terrain.artificial_terrain_offset);
-        }
-        
         break;
     }
 }

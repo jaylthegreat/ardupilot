@@ -152,8 +152,6 @@ bool AP_Terrain::height_amsl(const Location &loc, float &height, bool corrected)
     if (corrected) {
         height += (ahrs.get_home().alt * 0.01f) - home_height;
     }
-        //// for testing rapid changes and glitches in rangefinder readings
-        height += artificial_terrain_offset;/////////////////////////////////////////////////////
 
     return true;
 }
