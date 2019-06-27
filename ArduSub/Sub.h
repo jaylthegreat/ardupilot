@@ -478,6 +478,7 @@ private:
     float get_look_ahead_yaw();
     float get_pilot_desired_climb_rate(float throttle_control);
     float get_surface_tracking_climb_rate(int16_t target_rate, float current_alt_target, float dt);
+    float get_surface_tracking_climb_rate_terrfollow(int16_t target_rate, float current_alt_target, float dt, uint16_t rngfnd_alt);
     void update_poscon_alt_max();
     void rotate_body_frame_to_NE(float &x, float &y);
     void gcs_send_heartbeat(void);
@@ -554,7 +555,8 @@ private:
     bool althold_init(void);
     void althold_run();
     bool terrfollow_init(void);
-    void terrfollow_run();    
+    void terrfollow_run();  
+    bool isRangeReadingValid();/////////////////  
     bool auto_init(void);
     void auto_run();
     void auto_wp_start(const Vector3f& destination);

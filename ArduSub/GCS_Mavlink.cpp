@@ -437,15 +437,30 @@ bool NOINLINE Sub::send_info(mavlink_channel_t chan)
             chan,
             AP_HAL::millis(),
             "InputHold",
-            input_hold_engaged);
+            input_hold_engaged); 
+                   
+    CHECK_PAYLOAD_SIZE2(NAMED_VALUE_FLOAT);
+    mavlink_msg_named_value_float_send(
+            chan,
+            AP_HAL::millis(),
+            "RollPitch",
+            roll_pitch_flag);
 
     CHECK_PAYLOAD_SIZE2(NAMED_VALUE_FLOAT);
     mavlink_msg_named_value_float_send(
             chan,
             AP_HAL::millis(),
-            "StickMode",
-            roll_pitch_flag);
+            "RngTarget",
+            //pos_control.get_alt_target()); //show distance from surface
+            target_rangefinder_alt);    //show distance from bottom
 
+    CHECK_PAYLOAD_SIZE2(NAMED_VALUE_FLOAT);
+    mavlink_msg_named_value_float_send(
+            chan,
+            AP_HAL::millis(),
+            "ThrotIn",
+            // center is at 500.
+            (((float)channel_throttle->pwm_to_range() - 500) / 500) * 100); 
     return true;
 }
 

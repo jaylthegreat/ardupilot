@@ -4,6 +4,73 @@
 /*
  * control_althold.pde - init and run calls for althold, flight mode
  */
+const int samples = 6;
+uint16_t last_valid_rngfnd_alt;
+uint16_t rngfnd_alts [samples];
+uint16_t baro_alts [samples];
+
+int count;
+bool near_bottom; // keep track if you're within 10m of bottom and can trust rangefinder reading
+// checks to see if the latest rangefinder reading makes sense and should be considered valid
+
+void shiftValues(uint16_t* arr, int length) {
+    for (int i = length - 1; i > 0; i--){
+        arr[i] = arr[i - 1];
+    }
+}
+
+void resetArray (uint16_t* arr, int length) {
+    for (int i = length - 1; i > 0; i--){
+        arr[i] = 0;
+    }
+}
+
+bool Sub::isRangeReadingValid() {
+    //if (last_valid_rngfnd_alt == -1) { 
+    if (count < samples) {
+        last_valid_rngfnd_alt = rngfnd_alts[0];
+        return true;
+    }
+
+    //find differences btwn previous value
+    int changeBaroAlt;// = abs(baro_alts[0] - baro_alts[1]);
+    int changeRangeAlt;// = abs(rngfnd_alts[0] - rngfnd_alts[1]);
+
+    int closeTo = 0;
+    // a rapid change of > .1 m could suggest an issue
+    for (int i = 1; i < samples; i++) {
+        // if any of the readings are close to the new value 
+        if (abs(rngfnd_alts[0] - rngfnd_alts[i]) < 10) {
+            if (closeTo == 0) {
+                //what was the difference between the new and most recent similar value
+                changeRangeAlt = abs(rngfnd_alts[0] - rngfnd_alts[i]);
+                changeBaroAlt = abs(baro_alts[0] - baro_alts[i]);
+            }
+            closeTo ++;
+        }
+    }
+    // if out of range of over half of samples, then it's probably locked onto wrong target
+    if (closeTo < samples / 2) {
+        return false;
+    }    
+    //by here we know it makes some sense in relation to its  previous values
+
+    // now check if its change is consistent with the change in depth
+    if (abs(changeRangeAlt - changeBaroAlt) > 10) {
+        gcs_send_text_fmt(MAV_SEVERITY_INFO, "alt change disparity (%d)",
+            changeRangeAlt - changeBaroAlt);
+            return false;
+    }
+
+    // now we know it's consistent with the depth of the sub
+
+    // must also be within 10 of last valid to be new valid
+    //if (abs(rngfnd_alts[0] - last_valid_rngfnd_alt) < 15) {
+        last_valid_rngfnd_alt = rngfnd_alts[0];
+            return true;
+    //}
+    //return false;
+}
 
 // terrfollow_init - initialise althold controller
 bool Sub::terrfollow_init()
@@ -13,14 +80,31 @@ bool Sub::terrfollow_init()
         return false;
     }
 #endif
+    //dont enter mode if rangefinder doesnt work
+    if (!rangefinder_alt_ok()) {        
+        // needs to output error message as well
+        gcs_send_text(MAV_SEVERITY_ERROR, "Rangefinder error, cant enter terrain follow mode");
+        return false;
+    }
+    //maybe double check some values just to make sure
+    //
+    //
+
+    count = 0;
+    resetArray(rngfnd_alts,samples);
+    resetArray(baro_alts, samples);
+    last_valid_rngfnd_alt = -1;
+    // dont count as near bottom until within 10 m of it
+    near_bottom = rangefinder.distance_cm(0) < 1000;
+    
 
     // initialize vertical speeds and leash lengths
     // sets the maximum speed up and down returned by position controller
     pos_control.set_speed_z(-g.pilot_velocity_z_max, g.pilot_velocity_z_max);
     pos_control.set_accel_z(g.pilot_accel_z);
-
+    target_rangefinder_alt = desired_distance_from_floor;
     // initialise position and desired velocity
-    pos_control.set_alt_target(inertial_nav.get_altitude());
+    //pos_control.set_alt_target(inertial_nav.get_altitude());
     pos_control.set_desired_velocity_z(inertial_nav.get_velocity_z());
 
     last_pilot_heading = ahrs.yaw_sensor;
@@ -32,8 +116,31 @@ bool Sub::terrfollow_init()
 // should be called at 100hz or more
 void Sub::terrfollow_run()
 {
+    if (count < 15) { count++; }
+
+    rngfnd_alts[0] = rangefinder_state.alt_cm;
+    //baro_alts[0] = (uint16_t) barometer.get_altitude() * 100;
+    baro_alts[0] = inertial_nav.get_altitude();
+
     uint32_t tnow = AP_HAL::millis();
     static uint32_t prevMessageTime = 0;
+
+    if (!isRangeReadingValid()) {
+        int avg = (rngfnd_alts[0] + rngfnd_alts[1]) / 2;
+        gcs_send_text_fmt(MAV_SEVERITY_INFO, "range reading invalid, using average of %d", avg);
+        last_valid_rngfnd_alt = avg;
+    }
+
+    shiftValues(rngfnd_alts, 5);
+    shiftValues(baro_alts, 5);
+
+
+    if (inertial_nav.get_altitude() > 9999) {
+        //dont go to 100m down. switch to alt hold if within 3m of it
+        gcs_send_text(MAV_SEVERITY_ALERT, "#approaching 100m depth, switching to depth_hold");
+        set_mode(ALT_HOLD, MODE_REASON_BAD_DEPTH);
+        return;
+    }
 
     // initialize vertical speeds and acceleration
     pos_control.set_speed_z(-g.pilot_velocity_z_max, g.pilot_velocity_z_max);
@@ -52,7 +159,8 @@ void Sub::terrfollow_run()
 
     // get pilot desired lean angles
     float target_roll, target_pitch;
-    get_pilot_desired_lean_angles(channel_roll->get_control_in(), channel_pitch->get_control_in(), target_roll, target_pitch, attitude_control.get_althold_lean_angle_max());
+    get_pilot_desired_lean_angles(channel_roll->get_control_in(), channel_pitch->get_control_in(), 
+        target_roll, target_pitch, attitude_control.get_althold_lean_angle_max());
 
     // get pilot's desired yaw rate
     float target_yaw_rate = get_pilot_desired_yaw_rate(channel_yaw->get_control_in());
@@ -71,11 +179,13 @@ void Sub::terrfollow_run()
             target_yaw_rate = 0; // Stop rotation on yaw axis
 
             // call attitude controller with target yaw rate = 0 to decelerate on yaw axis
-            attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw(target_roll, target_pitch, target_yaw_rate, get_smoothing_gain());
+            attitude_control.input_euler_angle_roll_pitch_euler_rate_yaw(target_roll, target_pitch,
+                target_yaw_rate, get_smoothing_gain());
             last_pilot_heading = ahrs.yaw_sensor; // update heading to hold
 
         } else { // call attitude controller holding absolute absolute bearing
-            attitude_control.input_euler_angle_roll_pitch_yaw(target_roll, target_pitch, last_pilot_heading, true, get_smoothing_gain());
+            attitude_control.input_euler_angle_roll_pitch_yaw(target_roll, target_pitch, 
+                last_pilot_heading, true, get_smoothing_gain());
         }
     }
 
@@ -83,16 +193,24 @@ void Sub::terrfollow_run()
     static bool engageStopZ = true;
     // Get last user velocity direction to check for zero derivative points
     static bool lastVelocityZWasNegative = false;
-    if (fabsf(channel_throttle->norm_input()-0.5f) > 0.05f) { // Throttle input above 5%
+
+    // we only want to use altitude control, so comment out area using pilot throttle
+    /*
+    //if (fabsf(channel_throttle->norm_input()-0.5f) > 0.75f) { // Throttle input above 5%
         // output pilot's throttle
         attitude_control.set_throttle_out(channel_throttle->norm_input(), false, g.throttle_filt);
+        //gcs_send_text_fmt(MAV_SEVERITY_INFO, "using pilot's throttle of %f",
+          //  attitude_control.get_throttle_in());
+        
         // reset z targets to current values
         pos_control.relax_alt_hold_controllers();
         engageStopZ = true;
         lastVelocityZWasNegative = inertial_nav.get_velocity_z() < 0;
-    } else { // hold z
+    }*/
+    //else { // hold z
 
         if (ap.at_bottom) {
+            gcs_send_text(MAV_SEVERITY_INFO, "#at bottom");
             pos_control.relax_alt_hold_controllers(); // clear velocity and position targets
             pos_control.set_alt_target(inertial_nav.get_altitude() + 10.0f); // set target to 10 cm above bottom
         } else if (rangefinder_alt_ok()) {
@@ -101,17 +219,25 @@ void Sub::terrfollow_run()
             if (AP_HAL::millis() - prevMessageTime >= 2000) {
                 gcs_send_text_fmt(MAV_SEVERITY_INFO, "curr_alt = %.3f rngfnd_target_alt = %.4f",
                     inertial_nav.get_altitude(), target_rangefinder_alt);
-                    
-                //gcs_send_text_fmt(MAV_SEVERITY_INFO, "current_baro_alt = %.3f",
-                //    barometer.get_altitude());
+/*
+                gcs_send_text_fmt(MAV_SEVERITY_INFO, "rangeReadings: %d, %d, %d, %d, %d", rngfnd_alts[0],
+                    rngfnd_alts[1], rngfnd_alts[2], rngfnd_alts[3], rngfnd_alts[4]);
+                gcs_send_text_fmt(MAV_SEVERITY_INFO, "baroReadings: %d, %d, %d, %d, %d", baro_alts[0],
+                    baro_alts[1], baro_alts[2], baro_alts[3], baro_alts[4]);                    
+*/                  
+                gcs_send_text_fmt(MAV_SEVERITY_INFO, "target_alt = %.3f",
+                    pos_control.get_alt_target()); 
                 prevMessageTime = tnow;
             }
 
             
             //pos_control.set_alt_target(-500);
-            target_rangefinder_alt = desired_distance_from_floor;
+            //target_rangefinder_alt = desired_distance_from_floor;
             
-            float target_climb_rate = get_surface_tracking_climb_rate(0, pos_control.get_alt_target(), G_Dt);
+            float target_climb_rate = get_surface_tracking_climb_rate_terrfollow(0,
+                pos_control.get_alt_target(), G_Dt, last_valid_rngfnd_alt);
+                //pos_control.get_alt_target(), G_Dt, rangefinder_state.alt_cm);
+
             pos_control.set_alt_target_from_climb_rate_ff(target_climb_rate, G_Dt, false);
         }
 
@@ -125,7 +251,8 @@ void Sub::terrfollow_run()
         }
 
         pos_control.update_z_controller();
-    }
+    //}
+
 
     motors.set_forward(channel_forward->norm_input());
     motors.set_lateral(channel_lateral->norm_input());

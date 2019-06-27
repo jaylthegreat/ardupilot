@@ -85,7 +85,7 @@ public:
         TerrainStatusOK        = 2  // terrain data available
     };
 
-    //float artificial_terrain_offset = 0;
+    float artificial_terrain_offset = 0;
 
     static const struct AP_Param::GroupInfo var_info[];
     

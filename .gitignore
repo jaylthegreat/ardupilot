@@ -87,3 +87,4 @@ status.txt
 tags
 terrain/
 test.ArduCopter/*
+.vscode/
