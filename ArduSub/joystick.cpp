@@ -594,7 +594,8 @@ void Sub::handle_jsbutton_press(uint8_t button, bool shift, bool held)
                 desired_distance_from_floor += 10;
             }
             gcs_send_text_fmt(MAV_SEVERITY_INFO, "desired_distance_from_bottom = %d cm",
-                desired_distance_from_floor);            
+                desired_distance_from_floor);
+            target_rangefinder_alt = desired_distance_from_floor;
         }
         // Not implemented
         break;
@@ -605,6 +606,7 @@ void Sub::handle_jsbutton_press(uint8_t button, bool shift, bool held)
             }
             gcs_send_text_fmt(MAV_SEVERITY_INFO, "desired_distance_from_bottom = %d cm",
                 desired_distance_from_floor);
+            target_rangefinder_alt = desired_distance_from_floor;
         }
         // Not implemented
         break;
