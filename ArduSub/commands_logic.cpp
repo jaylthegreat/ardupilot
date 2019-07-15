@@ -13,15 +13,20 @@ bool Sub::start_command(const AP_Mission::Mission_Command& cmd)
     Location_Class target_loc(cmd.content.location);
 
     // target alt must be negative (underwater)
-    if (target_loc.alt > 0.0f) {
+    if (!target_loc.get_alt_frame() == Location_Class::ALT_FRAME_ABOVE_TERRAIN && target_loc.alt > 0.0f) {
         gcs_send_text_fmt(MAV_SEVERITY_WARNING, "BAD NAV ALT %0.2f", (double)target_loc.alt);
         return true;
     }
 
     // only tested/supported alt frame so far is ALT_FRAME_ABOVE_HOME, where Home alt is always water's surface ie zero depth
     if (target_loc.get_alt_frame() != Location_Class::ALT_FRAME_ABOVE_HOME) {
-        gcs_send_text_fmt(MAV_SEVERITY_WARNING, "BAD NAV ALT_FRAME %d", (int8_t)target_loc.get_alt_frame());
-        return true;
+        // also allow above terrain frame so we can use it.
+        if (target_loc.get_alt_frame() == Location_Class::ALT_FRAME_ABOVE_TERRAIN) {
+            gcs_send_text(MAV_SEVERITY_INFO, "Using alt from terrain");
+        } else {
+            gcs_send_text_fmt(MAV_SEVERITY_WARNING, "BAD NAV ALT_FRAME %d", (int8_t)target_loc.get_alt_frame());
+            return true;
+        }
     }
 
     switch (cmd.id) {
