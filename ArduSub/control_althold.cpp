@@ -33,7 +33,6 @@ bool Sub::althold_init()
 void Sub::althold_run()
 {
     uint32_t tnow = AP_HAL::millis();
-    static uint32_t prevMessageTime = 0;
 
     // initialize vertical speeds and acceleration
     pos_control.set_speed_z(-g.pilot_velocity_z_max, g.pilot_velocity_z_max);
