@@ -1,6 +1,5 @@
 #include "Sub.h"
 
-
 /*
  * control_althold.pde - init and run calls for althold, flight mode
  */
@@ -11,7 +10,6 @@ uint16_t baro_alts [samples];
 
 int count;
 bool near_bottom; // keep track if you're within 10m of bottom and can trust rangefinder reading
-// checks to see if the latest rangefinder reading makes sense and should be considered valid
 
 void shiftValues(uint16_t* arr, int length) {
     for (int i = length - 1; i > 0; i--){
@@ -25,16 +23,16 @@ void resetArray (uint16_t* arr, int length) {
     }
 }
 
+// checks to see if the latest rangefinder reading makes sense and should be considered valid
 bool Sub::isRangeReadingValid() {
-    //if (last_valid_rngfnd_alt == -1) { 
     if (count < samples) {
         last_valid_rngfnd_alt = rngfnd_alts[0];
         return true;
     }
 
     //find differences btwn previous value
-    int changeBaroAlt;// = abs(baro_alts[0] - baro_alts[1]);
-    int changeRangeAlt;// = abs(rngfnd_alts[0] - rngfnd_alts[1]);
+    int changeBaroAlt;
+    int changeRangeAlt;
 
     int closeTo = 0;
     // a rapid change of > .1 m could suggest an issue
@@ -61,15 +59,11 @@ bool Sub::isRangeReadingValid() {
             changeRangeAlt - changeBaroAlt);
             return false;
     }
-
     // now we know it's consistent with the depth of the sub
 
     // must also be within 10 of last valid to be new valid
-    //if (abs(rngfnd_alts[0] - last_valid_rngfnd_alt) < 15) {
-        last_valid_rngfnd_alt = rngfnd_alts[0];
-            return true;
-    //}
-    //return false;
+    last_valid_rngfnd_alt = rngfnd_alts[0];
+    return true;
 }
 
 // terrfollow_init - initialise althold controller
@@ -86,9 +80,6 @@ bool Sub::terrfollow_init()
         gcs_send_text(MAV_SEVERITY_ERROR, "Rangefinder error, cant enter terrain follow mode");
         return false;
     }
-    //maybe double check some values just to make sure
-    //
-    //
 
     count = 0;
     resetArray(rngfnd_alts,samples);
@@ -97,14 +88,12 @@ bool Sub::terrfollow_init()
     // dont count as near bottom until within 10 m of it
     near_bottom = rangefinder.distance_cm(0) < 1000;
     
-
     // initialize vertical speeds and leash lengths
     // sets the maximum speed up and down returned by position controller
     pos_control.set_speed_z(-g.pilot_velocity_z_max, g.pilot_velocity_z_max);
     pos_control.set_accel_z(g.pilot_accel_z);
     target_rangefinder_alt = desired_distance_from_floor;
-    // initialise position and desired velocity
-    //pos_control.set_alt_target(inertial_nav.get_altitude());
+    // initialise desired velocity
     pos_control.set_desired_velocity_z(inertial_nav.get_velocity_z());
 
     last_pilot_heading = ahrs.yaw_sensor;
@@ -119,11 +108,9 @@ void Sub::terrfollow_run()
     if (count < 15) { count++; }
 
     rngfnd_alts[0] = rangefinder_state.alt_cm;
-    //baro_alts[0] = (uint16_t) barometer.get_altitude() * 100;
     baro_alts[0] = inertial_nav.get_altitude();
 
     uint32_t tnow = AP_HAL::millis();
-    static uint32_t prevMessageTime = 0;
 
     if (!isRangeReadingValid()) {
         int avg = (rngfnd_alts[0] + rngfnd_alts[1]) / 2;
@@ -133,7 +120,6 @@ void Sub::terrfollow_run()
 
     shiftValues(rngfnd_alts, 5);
     shiftValues(baro_alts, 5);
-
 
     if (inertial_nav.get_altitude() > 9999) {
         //dont go to 100m down. switch to alt hold if within 3m of it
