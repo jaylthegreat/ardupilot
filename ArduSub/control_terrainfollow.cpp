@@ -194,65 +194,27 @@ void Sub::terrfollow_run()
     // Get last user velocity direction to check for zero derivative points
     static bool lastVelocityZWasNegative = false;
 
-    // we only want to use altitude control, so comment out area using pilot throttle
-    /*
-    //if (fabsf(channel_throttle->norm_input()-0.5f) > 0.75f) { // Throttle input above 5%
-        // output pilot's throttle
-        attitude_control.set_throttle_out(channel_throttle->norm_input(), false, g.throttle_filt);
-        //gcs_send_text_fmt(MAV_SEVERITY_INFO, "using pilot's throttle of %f",
-          //  attitude_control.get_throttle_in());
-        
-        // reset z targets to current values
+    if (ap.at_bottom) {
+        gcs_send_text(MAV_SEVERITY_INFO, "#at bottom");
+        pos_control.relax_alt_hold_controllers(); // clear velocity and position targets
+        pos_control.set_alt_target(inertial_nav.get_altitude() + 10.0f); // set target to 10 cm above bottom
+    } else if (rangefinder_alt_ok()) {          
+        float target_climb_rate = get_surface_tracking_climb_rate_terrfollow(0,
+            pos_control.get_alt_target(), G_Dt, last_valid_rngfnd_alt);
+
+        pos_control.set_alt_target_from_climb_rate_ff(target_climb_rate, G_Dt, false);
+    }
+
+    // Detects a zero derivative
+    // When detected, move the altitude set point to the actual position
+    // This will avoid any problem related to joystick delays
+    // or smaller input signals
+    if(engageStopZ && (lastVelocityZWasNegative ^ (inertial_nav.get_velocity_z() < 0) )) {
+        engageStopZ = false;
         pos_control.relax_alt_hold_controllers();
-        engageStopZ = true;
-        lastVelocityZWasNegative = inertial_nav.get_velocity_z() < 0;
-    }*/
-    //else { // hold z
+    }
 
-        if (ap.at_bottom) {
-            gcs_send_text(MAV_SEVERITY_INFO, "#at bottom");
-            pos_control.relax_alt_hold_controllers(); // clear velocity and position targets
-            pos_control.set_alt_target(inertial_nav.get_altitude() + 10.0f); // set target to 10 cm above bottom
-        } else if (rangefinder_alt_ok()) {
-            // if rangefinder is ok, use surface tracking
-
-            if (AP_HAL::millis() - prevMessageTime >= 2000) {
-                gcs_send_text_fmt(MAV_SEVERITY_INFO, "curr_alt = %.3f rngfnd_target_alt = %.4f",
-                    inertial_nav.get_altitude(), target_rangefinder_alt);
-/*
-                gcs_send_text_fmt(MAV_SEVERITY_INFO, "rangeReadings: %d, %d, %d, %d, %d", rngfnd_alts[0],
-                    rngfnd_alts[1], rngfnd_alts[2], rngfnd_alts[3], rngfnd_alts[4]);
-                gcs_send_text_fmt(MAV_SEVERITY_INFO, "baroReadings: %d, %d, %d, %d, %d", baro_alts[0],
-                    baro_alts[1], baro_alts[2], baro_alts[3], baro_alts[4]);                    
-*/                  
-                gcs_send_text_fmt(MAV_SEVERITY_INFO, "target_alt = %.3f",
-                    pos_control.get_alt_target()); 
-                prevMessageTime = tnow;
-            }
-
-            
-            //pos_control.set_alt_target(-500);
-            //target_rangefinder_alt = desired_distance_from_floor;
-            
-            float target_climb_rate = get_surface_tracking_climb_rate_terrfollow(0,
-                pos_control.get_alt_target(), G_Dt, last_valid_rngfnd_alt);
-                //pos_control.get_alt_target(), G_Dt, rangefinder_state.alt_cm);
-
-            pos_control.set_alt_target_from_climb_rate_ff(target_climb_rate, G_Dt, false);
-        }
-
-        // Detects a zero derivative
-        // When detected, move the altitude set point to the actual position
-        // This will avoid any problem related to joystick delays
-        // or smaller input signals
-        if(engageStopZ && (lastVelocityZWasNegative ^ (inertial_nav.get_velocity_z() < 0) )) {
-            engageStopZ = false;
-            pos_control.relax_alt_hold_controllers();
-        }
-
-        pos_control.update_z_controller();
-    //}
-
+    pos_control.update_z_controller();
 
     motors.set_forward(channel_forward->norm_input());
     motors.set_lateral(channel_lateral->norm_input());
