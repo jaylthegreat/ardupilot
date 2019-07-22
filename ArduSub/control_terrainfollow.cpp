@@ -25,6 +25,7 @@ void resetArray (uint16_t* arr, int length) {
 
 // checks to see if the latest rangefinder reading makes sense and should be considered valid
 bool Sub::isRangeReadingValid() {
+    // use the first input values you get until you have enough to compare
     if (count < samples) {
         last_valid_rngfnd_alt = rngfnd_alts[0];
         return true;
@@ -123,7 +124,7 @@ void Sub::terrfollow_run()
 
     if (inertial_nav.get_altitude() > 9999) {
         //dont go to 100m down. switch to alt hold if within 3m of it
-        gcs_send_text(MAV_SEVERITY_ALERT, "#approaching 100m depth, switching to depth_hold");
+        gcs_send_text(MAV_SEVERITY_ALERT, "#approaching 100m depth, switching to depth hold");
         set_mode(ALT_HOLD, MODE_REASON_BAD_DEPTH);
         return;
     }
@@ -184,11 +185,19 @@ void Sub::terrfollow_run()
         gcs_send_text(MAV_SEVERITY_INFO, "#at bottom");
         pos_control.relax_alt_hold_controllers(); // clear velocity and position targets
         pos_control.set_alt_target(inertial_nav.get_altitude() + 10.0f); // set target to 10 cm above bottom
-    } else if (rangefinder_alt_ok()) {          
-        float target_climb_rate = get_surface_tracking_climb_rate_terrfollow(0,
-            pos_control.get_alt_target(), G_Dt, last_valid_rngfnd_alt);
+    } else 
+    {
+        if (rangefinder_alt_ok()) {          
+            float target_climb_rate = get_surface_tracking_climb_rate_terrfollow(0,
+                pos_control.get_alt_target(), G_Dt, last_valid_rngfnd_alt);
 
-        pos_control.set_alt_target_from_climb_rate_ff(target_climb_rate, G_Dt, false);
+            pos_control.set_alt_target_from_climb_rate_ff(target_climb_rate, G_Dt, false);
+        }
+        else {
+            gcs_send_text(MAV_SEVERITY_ALERT, "#rangefinder error. Switching to depth hold mode");
+            set_mode(ALT_HOLD, MODE_REASON_TERRAIN_FAILSAFE);
+            return;
+        }
     }
 
     // Detects a zero derivative
